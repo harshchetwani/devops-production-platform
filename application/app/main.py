@@ -99,6 +99,14 @@ def readiness():
         "status": "ready"
     }
 
+@app.get("/version")
+def version():
+    return {
+        "application": APP_NAME,
+        "version": APP_VERSION,
+        "environment": APP_ENV,
+    }
+
 
 # -------------------------
 # Order Endpoints
