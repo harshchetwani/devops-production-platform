@@ -68,9 +68,8 @@ jobs:
         run: |
           python -m pytest
 
-
-  docker-build:
-    name: Build Docker Image
+docker-build:
+    name: Build and Scan Docker Image
     runs-on: ubuntu-latest
     needs: test
 
@@ -84,3 +83,12 @@ jobs:
           docker build \
             -t order-api:${{ github.sha }} \
             ./application
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: order-api:${{ github.sha }}
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
