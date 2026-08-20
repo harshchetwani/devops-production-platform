@@ -1,0 +1,36 @@
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: order-postgres
+    environment:
+      POSTGRES_DB: orders_db
+      POSTGRES_USER: order_user
+      POSTGRES_PASSWORD: order_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_user -d orders_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./application
+    container_name: order-api
+    environment:
+      APP_NAME: "Order Management API"
+      APP_VERSION: "1.0.0"
+      APP_ENV: "development"
+      DATABASE_URL: "postgresql://order_user:order_password@postgres:5432/orders_db"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  order-db-data:
