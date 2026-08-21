@@ -1,0 +1,41 @@
+name: CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "GHCR image tag to deploy"
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy with Helm
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: |
+          helm lint helm/order-api
+
+      - name: Render Helm manifests
+        run: |
+          helm template order-api helm/order-api \
+            --set image.repository=ghcr.io/harshchetwani/order-api \
+            --set image.tag=${{ inputs.image_tag }} \
+            > /tmp/order-api.yaml
+
+      - name: Validate rendered manifests
+        run: |
+          grep "^kind:" /tmp/order-api.yaml
