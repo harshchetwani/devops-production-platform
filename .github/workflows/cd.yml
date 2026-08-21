@@ -25,17 +25,52 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
+      - name: Create Kubernetes cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: devops-cluster
+
+      - name: Verify Kubernetes cluster
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Create application secrets
+        run: |
+          kubectl create secret generic postgres-secret \
+            --from-literal=POSTGRES_DB=orders_db \
+            --from-literal=POSTGRES_USER=order_user \
+            --from-literal=POSTGRES_PASSWORD=order_password
+
+          kubectl create secret generic order-api-secret \
+            --from-literal=DATABASE_URL=postgresql://order_user:order_password@postgres:5432/orders_db
+
       - name: Helm lint
         run: |
           helm lint helm/order-api
 
-      - name: Render Helm manifests
+      - name: Helm deploy
         run: |
-          helm template order-api helm/order-api \
+          helm upgrade --install order-api helm/order-api \
             --set image.repository=ghcr.io/harshchetwani/order-api \
             --set image.tag=${{ inputs.image_tag }} \
-            > /tmp/order-api.yaml
+            --wait \
+            --timeout 5m
 
-      - name: Validate rendered manifests
+      - name: Verify deployment
         run: |
-          grep "^kind:" /tmp/order-api.yaml
+          kubectl get pods
+          kubectl get services
+          kubectl get deployments
+          kubectl get pvc
+
+      - name: Verify rollout
+        run: |
+          kubectl rollout status deployment/postgres --timeout=5m
+          kubectl rollout status deployment/order-api --timeout=5m
+
+      - name: Verify application
+        run: |
+          kubectl get pods -l app=order-api
+          kubectl exec deployment/order-api -- \
+            python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read().decode())"
