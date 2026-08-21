@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -10,6 +10,10 @@ on:
     branches:
       - main
       - develop
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
 
@@ -70,9 +74,36 @@ jobs:
 
 
   docker-build:
-    name: Build, Scan and Push Docker Image
+    name: Build and Scan Docker Image
     runs-on: ubuntu-latest
     needs: test
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t order-api:${{ github.sha }} \
+            ./application
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: order-api:${{ github.sha }}
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+
+  publish:
+    name: Publish Image to GHCR
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.event_name == 'push'
 
     permissions:
       contents: read
@@ -90,22 +121,41 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image
+      - name: Build image
         run: |
           docker build \
             -t ghcr.io/${{ github.repository_owner }}/order-api:${{ github.sha }} \
             ./application
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/order-api:${{ github.sha }}
-          format: table
-          exit-code: 1
-          ignore-unfixed: true
-          severity: CRITICAL,HIGH
-
-      - name: Push Docker image
+      - name: Push image
         run: |
           docker push \
             ghcr.io/${{ github.repository_owner }}/order-api:${{ github.sha }}
+
+
+  helm:
+    name: Validate Helm Chart
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: |
+          helm lint helm/order-api
+
+      - name: Helm template
+        run: |
+          helm template order-api helm/order-api > /tmp/order-api.yaml
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubectl apply \
+            --dry-run=client \
+            -f /tmp/order-api.yaml
