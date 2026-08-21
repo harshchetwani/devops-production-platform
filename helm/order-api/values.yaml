@@ -1,0 +1,65 @@
+replicaCount: 2
+
+image:
+  repository: order-api
+  tag: security-test
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+probes:
+  readiness:
+    path: /ready
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+  liveness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+config:
+  appName: Order Management API
+  appVersion: "1.0.0"
+  appEnv: production
+
+ingress:
+  enabled: true
+  className: nginx
+  host: order-api.local
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 60
+
+postgres:
+  enabled: true
+
+  image:
+    repository: postgres
+    tag: "16"
+
+  database:
+    name: orders_db
+    user: order_user
+
+  persistence:
+    size: 1Gi
+    storageClass: standard

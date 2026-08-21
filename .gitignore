@@ -2,3 +2,7 @@
 # Local development
 .vscode/
 application/venv312/
+
+# Kubernetes secrets
+k8s/secret.yaml
+k8s/postgres-secret.yaml
