@@ -70,26 +70,42 @@ jobs:
 
 
   docker-build:
-    name: Build and Scan Docker Image
+    name: Build, Scan and Push Docker Image
     runs-on: ubuntu-latest
     needs: test
+
+    permissions:
+      contents: read
+      packages: write
 
     steps:
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build Docker image
         run: |
           docker build \
-            -t order-api:${{ github.sha }} \
+            -t ghcr.io/${{ github.repository_owner }}/order-api:${{ github.sha }} \
             ./application
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: order-api:${{ github.sha }}
+          image-ref: ghcr.io/${{ github.repository_owner }}/order-api:${{ github.sha }}
           format: table
           exit-code: 1
           ignore-unfixed: true
           severity: CRITICAL,HIGH
+
+      - name: Push Docker image
+        run: |
+          docker push \
+            ghcr.io/${{ github.repository_owner }}/order-api:${{ github.sha }}
