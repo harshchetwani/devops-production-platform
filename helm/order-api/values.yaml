@@ -63,3 +63,6 @@ postgres:
   persistence:
     size: 1Gi
     storageClass: standard
+
+networkPolicy:
+  enabled: true
