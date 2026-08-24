@@ -9,6 +9,7 @@ logger = logging.getLogger("order-api")
 
 from typing import List
 from uuid import uuid4
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -26,7 +27,7 @@ app = FastAPI(
     description="Production-style DevOps demonstration application",
     version=APP_VERSION,
 )
-
+Instrumentator().instrument(app).expose(app)
 
 # -------------------------
 # Data Models
