@@ -104,7 +104,7 @@ def readiness():
 def version():
     return {
         "application": APP_NAME,
-        "version": "3.1.0",
+        "version": APP_VERSION,
         "environment": APP_ENV,
     }
 
