@@ -104,7 +104,7 @@ def readiness():
 def version():
     return {
         "application": APP_NAME,
-        "version": APP_VERSION,
+        "version": "3.1.0",
         "environment": APP_ENV,
     }
 
@@ -148,6 +148,14 @@ def get_orders(
     db: Session = Depends(get_db),
 ):
     return db.query(OrderModel).all()
+
+
+@app.get("/test-error")
+def test_error():
+    raise HTTPException(
+        status_code=500,
+        detail="Intentional test error",
+    )
 
 
 @app.get("/orders/{order_id}", response_model=Order)

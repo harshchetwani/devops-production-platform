@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: order-api-alerts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: order-api.rules
+      rules:
+        - alert: OrderApiHighErrorRate
+          expr: |
+            (
+              sum(rate(http_requests_total{job="order-api",status=~"5.."}[2m]))
+              /
+              sum(rate(http_requests_total{job="order-api"}[2m]))
+            ) > 0.05
+          for: 1m
+          labels:
+            severity: warning
+            app: order-api
+          annotations:
+            summary: "Order API has a high 5xx error rate"
+            description: "Order API 5xx error rate has been above 5% for more than 1 minute."

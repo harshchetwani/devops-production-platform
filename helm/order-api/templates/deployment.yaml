@@ -5,7 +5,9 @@ metadata:
   labels:
     app: order-api
 spec:
+  {{- if not .Values.hpa.enabled }}
   replicas: {{ .Values.replicaCount }}
+  {{- end }}
 
   selector:
     matchLabels:
@@ -23,8 +25,23 @@ spec:
         app: order-api
 
     spec:
+      automountServiceAccountToken: false
+
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+
       containers:
         - name: order-api
+
+          securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+                - ALL
 
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}

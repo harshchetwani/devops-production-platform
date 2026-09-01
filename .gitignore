@@ -6,3 +6,8 @@ application/venv312/
 # Kubernetes secrets
 k8s/secret.yaml
 k8s/postgres-secret.yaml
+postgres-backup.sql
+
+# Local backup files
+monitoring-values-backup.yaml
+order-api-values-backup.yaml
