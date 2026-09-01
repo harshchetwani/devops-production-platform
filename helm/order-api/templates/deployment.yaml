@@ -35,12 +35,12 @@ spec:
         - name: order-api
 
           securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
-          runAsNonRoot: true
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
                 - ALL
 
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
