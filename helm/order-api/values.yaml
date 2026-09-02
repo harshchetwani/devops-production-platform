@@ -8,6 +8,8 @@ image:
 monitoring:
   serviceMonitor:
     enabled: true
+  prometheusRule:
+    enabled: true
 
 service:
   type: ClusterIP
@@ -67,6 +69,14 @@ postgres:
   database:
     name: orders_db
     user: order_user
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
   persistence:
     size: 1Gi

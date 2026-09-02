@@ -1,3 +1,4 @@
+{{- if .Values.monitoring.prometheusRule.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -23,3 +24,4 @@ spec:
           annotations:
             summary: "Order API has a high 5xx error rate"
             description: "Order API 5xx error rate has been above 5% for more than 1 minute."
+{{- end }}

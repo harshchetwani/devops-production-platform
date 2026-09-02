@@ -54,6 +54,8 @@ jobs:
           helm upgrade --install order-api helm/order-api \
             --set image.repository=ghcr.io/harshchetwani/order-api \
             --set image.tag=${{ inputs.image_tag }} \
+            --set monitoring.serviceMonitor.enabled=false \
+            --set monitoring.prometheusRule.enabled=false \
             --wait \
             --timeout 5m
 
