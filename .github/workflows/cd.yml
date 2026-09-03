@@ -73,13 +73,38 @@ jobs:
 
       - name: Initialize database schema
         run: |
-          kubectl run order-db-init \
-            --rm \
-            --restart=Never \
-            --image=ghcr.io/${{ github.repository_owner }}/order-api:${{ github.event.workflow_run.head_sha }} \
-            --env="DATABASE_URL=postgresql://order_user:${POSTGRES_PASSWORD}@postgres:5432/orders_db" \
-            --command -- \
-            python -m app.init_db
+          cat <<EOF | kubectl apply -f -
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: order-db-init
+          spec:
+            backoffLimit: 3
+            ttlSecondsAfterFinished: 300
+            template:
+              metadata:
+                labels:
+                  app: order-api
+              spec:
+                restartPolicy: Never
+                containers:
+                  - name: db-init
+                    image: ghcr.io/${{ github.repository_owner }}/order-api:${{ github.event.workflow_run.head_sha }}
+                    env:
+                      - name: DATABASE_URL
+                        value: "postgresql://order_user:${POSTGRES_PASSWORD}@postgres:5432/orders_db"
+                    command:
+                      - python
+                      - -m
+                      - app.init_db
+          EOF
+
+          kubectl wait \
+            --for=condition=complete \
+            job/order-db-init \
+            --timeout=5m
+
+          kubectl get job order-db-init
 
       - name: Create least-privilege application user
         run: |
