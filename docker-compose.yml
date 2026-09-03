@@ -3,10 +3,11 @@ services:
   postgres:
     image: postgres:16
     container_name: order-postgres
+    env_file:
+      - ./application/.env.docker
     environment:
       POSTGRES_DB: orders_db
       POSTGRES_USER: order_user
-      POSTGRES_PASSWORD: order_password
     ports:
       - "5433:5432"
     volumes:
@@ -21,11 +22,8 @@ services:
     build:
       context: ./application
     container_name: order-api
-    environment:
-      APP_NAME: "Order Management API"
-      APP_VERSION: "1.0.0"
-      APP_ENV: "development"
-      DATABASE_URL: "postgresql://order_user:order_password@postgres:5432/orders_db"
+    env_file:
+      - ./application/.env.docker
     ports:
       - "8000:8000"
     depends_on:
