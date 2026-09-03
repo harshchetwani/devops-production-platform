@@ -37,25 +37,79 @@ jobs:
           kubectl cluster-info
           kubectl get nodes
 
-      - name: Create application secrets
-        run: |
-          kubectl create secret generic postgres-secret \
-            --from-literal=POSTGRES_DB=orders_db \
-            --from-literal=POSTGRES_USER=order_user \
-            --from-literal=POSTGRES_PASSWORD=order_password
-
-          kubectl create secret generic order-api-secret \
-            --from-literal=DATABASE_URL=postgresql://order_user:order_password@postgres:5432/orders_db
-
       - name: Helm lint
         run: |
           helm lint helm/order-api
 
-      - name: Helm deploy
+      - name: Generate database passwords
+        run: |
+          POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+          ORDER_APP_PASSWORD="$(openssl rand -hex 24)"
+
+          echo "::add-mask::$POSTGRES_PASSWORD"
+          echo "::add-mask::$ORDER_APP_PASSWORD"
+
+          echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> "$GITHUB_ENV"
+          echo "ORDER_APP_PASSWORD=$ORDER_APP_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Create PostgreSQL bootstrap secret
+        run: |
+          kubectl create secret generic postgres-secret \
+            --from-literal=POSTGRES_DB=orders_db \
+            --from-literal=POSTGRES_USER=order_user \
+            --from-literal="POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
+
+      - name: Deploy PostgreSQL
         run: |
           helm upgrade --install order-api helm/order-api \
             --set image.repository=ghcr.io/${{ github.repository_owner }}/order-api \
             --set image.tag=${{ github.event.workflow_run.head_sha }} \
+            --set hpa.enabled=false \
+            --set replicaCount=0 \
+            --set monitoring.serviceMonitor.enabled=false \
+            --set monitoring.prometheusRule.enabled=false
+
+          kubectl rollout status deployment/postgres --timeout=5m
+
+      - name: Initialize database schema
+        run: |
+          kubectl run order-db-init \
+            --rm \
+            --restart=Never \
+            --image=ghcr.io/${{ github.repository_owner }}/order-api:${{ github.event.workflow_run.head_sha }} \
+            --env="DATABASE_URL=postgresql://order_user:${POSTGRES_PASSWORD}@postgres:5432/orders_db" \
+            --command -- \
+            python -m app.init_db
+
+      - name: Create least-privilege application user
+        run: |
+          kubectl exec deployment/postgres -- \
+            psql -U order_user -d orders_db -c \
+            "CREATE ROLE order_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '$ORDER_APP_PASSWORD';"
+
+          kubectl exec deployment/postgres -- \
+            psql -U order_user -d orders_db -c \
+            "GRANT CONNECT ON DATABASE orders_db TO order_app;"
+
+          kubectl exec deployment/postgres -- \
+            psql -U order_user -d orders_db -c \
+            "GRANT USAGE ON SCHEMA public TO order_app;"
+
+          kubectl exec deployment/postgres -- \
+            psql -U order_user -d orders_db -c \
+            "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.orders TO order_app;"
+
+      - name: Create application secret
+        run: |
+          kubectl create secret generic order-api-secret \
+            --from-literal="DATABASE_URL=postgresql://order_app:${ORDER_APP_PASSWORD}@postgres:5432/orders_db"
+
+      - name: Deploy Order API
+        run: |
+          helm upgrade --install order-api helm/order-api \
+            --set image.repository=ghcr.io/${{ github.repository_owner }}/order-api \
+            --set image.tag=${{ github.event.workflow_run.head_sha }} \
+            --set hpa.enabled=true \
             --set monitoring.serviceMonitor.enabled=false \
             --set monitoring.prometheusRule.enabled=false \
             --wait \
